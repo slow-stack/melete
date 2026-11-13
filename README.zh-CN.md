@@ -1,6 +1,16 @@
-# chat-demo
+# Melete
 
 [English](README.md) | 简体中文
+
+**Melete** 是 DeepSeek 官方 [chat-demo](https://github.com/deepseek-ai/chat-demo) 的 fork，接入 [dsh-mneme](https://github.com/slow-stack/mneme) 长期记忆——melete 负责交谈，mneme 负责记住：本地伴随服务在每轮回答前把 `/context` 召回的用户画像与相关记忆注入 system，回答后自动蒸馏写回记忆库。聊天源码零改动，上游可随时合并；记忆缺席时聊天照常（fail-open），mneme token 只存在本地服务进程里，不进浏览器。
+
+```sh
+export MELETE_MNEME_TOKEN=<mneme 外部访问 token>
+pnpm melete        # 本地伴随服务（代理 + 注入 + 蒸馏）
+pnpm melete:dev    # 开发（或 pnpm melete:build + pnpm melete 静态托管）
+```
+
+记忆功能的架构、行为契约与配置项见 [server/README.md](server/README.md)。**以下为上游 chat-demo 的原始说明，原样保留。**
 
 基于 DeepSeek API 的静态聊天示例。无需应用后端，浏览器直接请求配置的 API 服务。
 
@@ -74,14 +84,3 @@ src/
 
 [MIT](LICENSE)。构建会将许可证复制到 `dist/LICENSE`，分发时请一并保留；第三方依赖遵循各自的许可证。
 
-## Mneme 记忆（melete 扩展）
-
-本 fork 在示例应用之上接入 [dsh-mneme](https://github.com/slow-stack/mneme) 长期记忆：回合前自动注入相关记忆与用户画像，回合后由本地服务蒸馏写回。聊天源码零改动，全部逻辑在本地伴随服务 `server/`（详情见 [server/README.md](server/README.md)）：
-
-```bash
-export MELETE_MNEME_TOKEN=<mneme 外部访问 token>
-pnpm melete        # 本地伴随服务（代理 + 注入 + 蒸馏）
-pnpm melete:dev    # 开发（或 pnpm melete:build + pnpm melete 静态托管）
-```
-
-记忆缺席时聊天照常（fail-open）；mneme token 只存在本地服务进程里，不进浏览器。

@@ -1,6 +1,16 @@
-# chat-demo
+# Melete
 
 English | [简体中文](README.zh-CN.md)
+
+**Melete** is a fork of DeepSeek's official [chat-demo](https://github.com/deepseek-ai/chat-demo) wired to [dsh-mneme](https://github.com/slow-stack/mneme) long-term memory — melete talks, mneme remembers: a local companion service injects the profile and memories recalled from `/context` into each turn's system prompt, then distills and writes back after the reply. Chat source stays untouched, so upstream changes merge cleanly; chat keeps working without memory (fail-open), and the mneme token never leaves the local service process.
+
+```sh
+export MELETE_MNEME_TOKEN=<mneme external API token>
+pnpm melete        # local companion service (proxy + injection + distillation)
+pnpm melete:dev    # dev server (or pnpm melete:build + pnpm melete for static hosting)
+```
+
+Memory architecture, behavior contracts and configuration live in [server/README.md](server/README.md). **What follows is the upstream chat-demo README, kept as is.**
 
 A static chat demo powered by the DeepSeek API. No application backend is required: the browser connects directly to the configured API service.
 
@@ -74,14 +84,3 @@ src/
 
 [MIT](LICENSE). The build copies the license to `dist/LICENSE`; include it when distributing the app. Third-party dependencies are subject to their own licenses.
 
-## Mneme memory (melete additions)
-
-This fork wires the sample app to [dsh-mneme](https://github.com/slow-stack/mneme) long-term memory: relevant memories and the user profile are injected before each turn, and a local companion service distills and writes back after each reply. Chat source stays untouched — all logic lives in the local companion service `server/` (see [server/README.md](server/README.md)):
-
-```bash
-export MELETE_MNEME_TOKEN=<mneme external API token>
-pnpm melete        # local companion service (proxy + injection + distillation)
-pnpm melete:dev    # dev server (or pnpm melete:build + pnpm melete for static hosting)
-```
-
-Chat keeps working without memory (fail-open); the mneme token never leaves the local service process.
