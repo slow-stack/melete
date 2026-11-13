@@ -214,6 +214,10 @@ export function createMeleteServer(config = {}) {
           })
           const block = memory.renderMemoryBlock(context)
           injectedBody.system = mergeSystem(injectedBody.system, block)
+          if (block) {
+            // 实测时的关键读数：注没注、注了几条、跑在哪个召回档（full=语义 / degraded=规则 / unknown）
+            logger.info?.(`melete: 已注入 ${context.items?.length ?? 0} 条记忆（tier=${context.tier ?? "unknown"}，q=${userText.slice(0, 40)}）`)
+          }
         } catch (error) {
           logger.warn?.(`melete: 记忆注入缺席，本轮按无记忆转发（${String(error)}）`)
         }

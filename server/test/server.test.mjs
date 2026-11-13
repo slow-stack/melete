@@ -43,7 +43,7 @@ const CONTEXT_FIXTURE = {
   tier: 'full',
 }
 
-async function createWorld({ mnemeToken = 'mneme-token-xyz', contextStatus = 200 } = {}) {
+async function createWorld({ mnemeToken = 'mneme-token-xyz', contextStatus = 200, logger = console } = {}) {
   // --- stub mneme ---
   const mneme = { contextCalls: [], memories: [] }
   let mnemeContextStatus = contextStatus
@@ -109,6 +109,7 @@ async function createWorld({ mnemeToken = 'mneme-token-xyz', contextStatus = 200
     allowOrigins: ['http://localhost:8090', 'http://127.0.0.1:8090'],
     distill: true,
     distillModel: 'deepseek-flash',
+    logger,
   })
   const meletePort = await listen(melete)
   const base = `http://127.0.0.1:${meletePort}`
@@ -152,7 +153,10 @@ async function createWorld({ mnemeToken = 'mneme-token-xyz', contextStatus = 200
 const QUESTION = '我叫小明，喜欢 Rust'
 
 test('全链路：注入 + 透传 + 蒸馏写回 + CORS', async () => {
-  const world = await createWorld()
+  // 实测可观测性：注入回执与写回回执是「记忆两头真的动了」的终端读数，锁其形状
+  const logs = []
+  const logger = { info: (line) => logs.push(line), warn: () => {} }
+  const world = await createWorld({ logger })
   try {
     const response = await world.chat(
       {
@@ -206,6 +210,16 @@ test('全链路：注入 + 透传 + 蒸馏写回 + CORS', async () => {
     assert.equal(distillBody.stream, false)
     assert.ok(distillBody.messages[0].content.includes('用户：我叫小明'))
     assert.ok(distillBody.messages[0].content.includes('助手：你好，我是助手'))
+
+    // 终端读数：注入回执带条数与 tier，写回回执带动作与标题
+    assert.ok(
+      logs.some((line) => line.includes('已注入 1 条记忆') && line.includes('tier=full')),
+      `应有注入回执，实际：${JSON.stringify(logs)}`
+    )
+    assert.ok(
+      logs.some((line) => line.includes('记忆已写回') && line.includes('自我介绍')),
+      `应有写回回执，实际：${JSON.stringify(logs)}`
+    )
   } finally {
     world.dispose()
   }
