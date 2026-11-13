@@ -112,6 +112,8 @@ export function createMeleteServer(config = {}) {
       // 预检按请求头回显：SPA 自定义头（x-api-key / anthropic-beta）会触发 preflight
       'Access-Control-Allow-Headers':
         'authorization,content-type,accept,x-api-key,anthropic-beta',
+      // 注入读数走响应头给前端徽标用，跨端口（dev）必须 expose 才读得到
+      'Access-Control-Expose-Headers': 'x-melete-injected-count, x-melete-injected-tier',
       'Access-Control-Max-Age': '600',
     }
   }
@@ -193,6 +195,7 @@ export function createMeleteServer(config = {}) {
     const isMessages = req.method === 'POST' && pathname === MESSAGES_PATH
     let injectedBody
     let userText = ''
+    let injectedMeta = null
     if (isMessages) {
       // /messages 需要读体注入，缓冲即可（文本 + file_id 引用，体量小；附件本体走 /files 流式）
       const chunks = []
@@ -214,9 +217,14 @@ export function createMeleteServer(config = {}) {
           })
           const block = memory.renderMemoryBlock(context)
           injectedBody.system = mergeSystem(injectedBody.system, block)
+          // /context 成功即记账（0 条是合法读数）；响应头给前端徽标，stderr 给终端实测
+          injectedMeta = {
+            count: Array.isArray(context.items) ? context.items.length : 0,
+            tier: context.tier ?? 'unknown',
+          }
           if (block) {
             // 实测时的关键读数：注没注、注了几条、跑在哪个召回档（full=语义 / degraded=规则 / unknown）
-            logger.info?.(`melete: 已注入 ${context.items?.length ?? 0} 条记忆（tier=${context.tier ?? "unknown"}，q=${userText.slice(0, 40)}）`)
+            logger.info?.(`melete: 已注入 ${injectedMeta.count} 条记忆（tier=${injectedMeta.tier}，q=${userText.slice(0, 40)}）`)
           }
         } catch (error) {
           logger.warn?.(`melete: 记忆注入缺席，本轮按无记忆转发（${String(error)}）`)
@@ -255,6 +263,11 @@ export function createMeleteServer(config = {}) {
         responseHeaders[lower] = value
       }
     })
+    // 注入读数响应头：/context 成功即有（0 条也如实透出），SPA 徽标与实测都读它
+    if (isMessages && injectedMeta) {
+      responseHeaders['x-melete-injected-count'] = String(injectedMeta.count)
+      responseHeaders['x-melete-injected-tier'] = injectedMeta.tier
+    }
 
     if (!upstream.ok) {
       // 错误体原样转发（SPA 的 ApiError 解析 body.error.message）
@@ -352,6 +365,50 @@ export function createMeleteServer(config = {}) {
           mneme: { url: memory.client.baseUrl, tokenConfigured: memory.enabled, reachable },
           proxy: { apiOrigin, distillEnabled, distillModel },
         }, cors)
+      })
+      return
+    }
+
+    // --- /mneme/memories：管理页代理（list + 手动添加）-----------------------
+    // token 只在本进程里，前端永不直连 daemon；查询串原样透传（UI 默认带
+    // source=melete，想看全库自己改参数）；POST 缺省注入 scope 与 source，
+    // 与蒸馏写回的行保持同一套身份。
+    if (pathname === '/mneme/memories' && (req.method === 'GET' || req.method === 'POST')) {
+      finish(async () => {
+        if (!memory.enabled) {
+          respondJson(res, 503, { error: 'mneme-disabled' }, cors)
+          return
+        }
+        const query = (req.url ?? '').split('?')[1] ?? ''
+        let body
+        if (req.method === 'POST') {
+          try {
+            body = JSON.parse(Buffer.concat(await Array.fromAsync(req)).toString('utf8') || '{}')
+          } catch {
+            respondJson(res, 400, { error: 'invalid-json' }, cors)
+            return
+          }
+          if (body && typeof body === 'object') {
+            body.agent_scope ??= memory.client.scopes.agent_scope
+            body.workspace_scope ??= memory.client.scopes.workspace_scope
+            body.source ??= 'melete'
+          }
+        }
+        const upstream = await fetch(`${memory.client.baseUrl}/memories${query ? `?${query}` : ''}`, {
+          method: req.method,
+          headers: {
+            Authorization: `Bearer ${memory.client.token}`,
+            ...(req.method === 'POST' ? { 'Content-Type': 'application/json' } : {}),
+          },
+          body: req.method === 'POST' ? JSON.stringify(body ?? {}) : undefined,
+          signal: AbortSignal.timeout(10_000),
+        })
+        const text = await upstream.text().catch(() => '')
+        res.writeHead(upstream.status, {
+          'Content-Type': 'application/json; charset=utf-8',
+          ...cors,
+        })
+        res.end(text)
       })
       return
     }

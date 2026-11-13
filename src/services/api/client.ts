@@ -140,11 +140,13 @@ const hasFile = (body: CreateMessageRequest) =>
 /**
  * POST /anthropic/v1/messages（stream: true），逐个产出流式事件，收到 message_stop 时结束。
  * ping、保活注释与无法解析的内容不产出；中止请求时抛出 signal 的 AbortError。
+ * onMeta：响应到达时回传 melete 伴随服务的注入读数（响应头）；直连上游时 injected 为 null。
  */
 export async function* streamMessage(
   apiKey: string,
   body: CreateMessageRequest,
-  signal: AbortSignal
+  signal: AbortSignal,
+  onMeta?: (meta: { injected: number | null; tier: string | null }) => void
 ): AsyncGenerator<MessageStreamEvent> {
   const response = await request(`${ANTHROPIC_BASE_URL}/messages`, {
     method: 'POST',
@@ -156,6 +158,13 @@ export async function* streamMessage(
     body: JSON.stringify({ ...body, stream: true }),
     signal,
   })
+  const injectedCount = response.headers.get('x-melete-injected-count')
+  if (onMeta) {
+    onMeta({
+      injected: injectedCount === null ? null : Number(injectedCount) || 0,
+      tier: response.headers.get('x-melete-injected-tier'),
+    })
+  }
   const contentType = response.headers.get('Content-Type') ?? ''
   if (!response.body || !contentType.includes('text/event-stream')) {
     throw await readErrorResponse(response, 'protocol', '')

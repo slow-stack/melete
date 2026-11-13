@@ -137,3 +137,16 @@
     --search-row-site-logo-color: var(--dsw-alias-interactive-bg-hover);
   }
 }
+
+/* melete：本轮注入了记忆的读数徽标；虚线与搜索来源 chip（实线）在形上区分 */
+.memoryChip {
+  width: fit-content;
+  margin-top: 12px;
+  padding: 3px 10px;
+  border-radius: 100px;
+  border: 1px dashed var(--dsw-alias-border-l2);
+  background-color: var(--dsw-alias-bg-base);
+  color: var(--dsw-alias-label-primary);
+  font: var(--dsw-font-markdown-small);
+  user-select: none;
+}

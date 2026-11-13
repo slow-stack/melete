@@ -24,11 +24,13 @@ const allowOrigins = (process.env.MELETE_ALLOW_ORIGIN ?? 'http://localhost:8090,
   .filter(Boolean)
 
 // 日志全部走 stderr：stdout 刻意只保留 listening 一行（机器可读约定）
-// eslint-disable-next-line no-console -- stderr 通道本身就是这里的正业
+// 用 process.stderr.write 而不是 console.*——stderr 通道本身就是这里的正业
+const stderrWrite = (...args) => {
+  process.stderr.write(`${args.map((arg) => String(arg)).join(' ')}\n`)
+}
 const stderrLogger = {
-  info: (...args) => console.error(...args),
-  // eslint-disable-next-line no-console -- 同上
-  warn: (...args) => console.error(...args),
+  info: stderrWrite,
+  warn: stderrWrite,
 }
 
 const server = createMeleteServer({

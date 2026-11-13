@@ -56,6 +56,7 @@ export const AssistantMessage = memo(function AssistantMessage({
   const copyText = responseText || notice?.text
   const waiting = streaming && view.steps.length === 0 && !view.answer && !message.thinking
   const summaryEntry = `${message.id}-summary`
+  const memoryMeta = message.memoryMeta
   return (
     <div className={styles.message}>
       {refused ? null : (
@@ -136,6 +137,17 @@ export const AssistantMessage = memo(function AssistantMessage({
               { count: view.searchResults.length }
             )}
           </span>
+        </div>
+      ) : null}
+      {memoryMeta && memoryMeta.injected > 0 ? (
+        <div
+          className={styles.memoryChip}
+          title={memoryMeta.tier ? `tier: ${memoryMeta.tier}` : undefined}
+        >
+          {t(
+            memoryMeta.injected === 1 ? 'messageMemorySummaryOne' : 'messageMemorySummaries',
+            { count: memoryMeta.injected }
+          )}
         </div>
       ) : null}
       {streaming ? null : (

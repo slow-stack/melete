@@ -1007,7 +1007,15 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
             tools: serverTools(initial.search ?? false),
             ...(titleRequests.has(controller) ? { title: { enabled: true } } : {}),
           },
-          controller.signal
+          controller.signal,
+          // melete：注入读数随响应头到达（0 条也记账），挂在回答上供徽标展示；
+          // 直连上游（无伴随服务）时 injected 为 null，缺省不显示
+          (meta) => {
+            if (meta.injected !== null) {
+              reply = { ...reply, memoryMeta: { injected: meta.injected, tier: meta.tier ?? '' } }
+              updateReply(sessionId, reply)
+            }
+          }
         )
         const blockIndexes = new Map<number, number>()
         for await (const event of events) {

@@ -45,7 +45,7 @@ const CONTEXT_FIXTURE = {
 
 async function createWorld({ mnemeToken = 'mneme-token-xyz', contextStatus = 200, logger = console } = {}) {
   // --- stub mneme ---
-  const mneme = { contextCalls: [], memories: [] }
+  const mneme = { contextCalls: [], listCalls: [], memories: [] }
   let mnemeContextStatus = contextStatus
   const mnemeServer = createServer(async (req, res) => {
     if (req.method === 'GET' && req.url.startsWith('/health')) {
@@ -57,6 +57,15 @@ async function createWorld({ mnemeToken = 'mneme-token-xyz', contextStatus = 200
       mneme.contextCalls.push({ url: req.url, authorization: req.headers.authorization })
       res.writeHead(mnemeContextStatus, { 'Content-Type': 'application/json' })
       res.end(mnemeContextStatus === 200 ? JSON.stringify(CONTEXT_FIXTURE) : '{"error":"boom"}')
+      return
+    }
+    if (req.method === 'GET' && req.url.startsWith('/memories')) {
+      mneme.listCalls.push({ url: req.url, authorization: req.headers.authorization })
+      res.writeHead(200, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({
+        items: [{ id: 'm1', type: 'summary', title: '自我介绍', content: '用户叫小明', importance: 3 }],
+        total: 1,
+      }))
       return
     }
     if (req.method === 'POST' && req.url === '/memories') {
@@ -220,6 +229,10 @@ test('全链路：注入 + 透传 + 蒸馏写回 + CORS', async () => {
       logs.some((line) => line.includes('记忆已写回') && line.includes('自我介绍')),
       `应有写回回执，实际：${JSON.stringify(logs)}`
     )
+
+    // 注入读数响应头：徽标与实测的数据源
+    assert.equal(response.headers.get('x-melete-injected-count'), '1')
+    assert.equal(response.headers.get('x-melete-injected-tier'), 'full')
   } finally {
     world.dispose()
   }
@@ -337,6 +350,45 @@ test('/models 透传：Authorization 原样转发', async () => {
     assert.equal(response.status, 200)
     const data = await response.json()
     assert.equal(data.data[0].id, 'deepseek-flash')
+  } finally {
+    world.dispose()
+  }
+})
+
+test('/mneme/memories 代理：GET 透传查询与鉴权，POST 缺省注入 scope 与 source', async () => {
+  const world = await createWorld()
+  try {
+    const list = await fetch(`${world.base}/mneme/memories?source=melete&limit=20`)
+    assert.equal(list.status, 200)
+    const listBody = await list.json()
+    assert.equal(listBody.total, 1)
+    assert.equal(listBody.items[0].id, 'm1')
+    assert.equal(world.mneme.listCalls[0].url, '/memories?source=melete&limit=20')
+    assert.equal(world.mneme.listCalls[0].authorization, 'Bearer mneme-token-xyz')
+
+    const add = await fetch(`${world.base}/mneme/memories`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'summary', title: '手动条目', content: '用户手动添加' }),
+    })
+    assert.equal(add.status, 201)
+    const manual = world.mneme.memories.at(-1)
+    assert.equal(manual.agent_scope, 'melete')
+    assert.equal(manual.workspace_scope, 'chat')
+    assert.equal(manual.source, 'melete')
+    assert.equal(manual.title, '手动条目')
+  } finally {
+    world.dispose()
+  }
+})
+
+test('/mneme/memories：记忆面关闭时 503（不透传到无鉴权的上游）', async () => {
+  const world = await createWorld({ mnemeToken: '' })
+  try {
+    const response = await fetch(`${world.base}/mneme/memories`)
+    assert.equal(response.status, 503)
+    assert.equal((await response.json()).error, 'mneme-disabled')
+    assert.equal(world.mneme.listCalls.length, 0)
   } finally {
     world.dispose()
   }

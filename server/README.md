@@ -62,7 +62,9 @@ pnpm melete          # http://127.0:8091 打开即是带记忆的聊天
 
 ## 诊断
 
-- `GET /mneme/status`：mneme 可达性、token 是否配置、蒸馏开关——接不上的第一排查点。
+- `GET /mneme/status`：mneme 可达性、token 是否配置、蒸馏开关——接不上的第一排查点；设置页「记忆」区显示同一份读数。
+- `GET /anthropic/v1/messages` 的响应头 `x-melete-injected-count` / `x-melete-injected-tier`：本轮注入读数（0 条也透出），回答下方的「已参考 N 条记忆」徽标读它；dev 跨端口场景经 `Access-Control-Expose-Headers` 放行。
+- `GET|POST /mneme/memories`：管理页代理——查询串原样透传（UI 默认 `source=melete`，只看 melete 建立的行），POST 缺省注入 scope 与 source；token 在 server 侧附加，前端永不直连 daemon。编辑/删除待 mneme 数据面补路由。
 - daemon 侧 `GET /context` 的 `tier`（full/degraded/unknown）是召回档位信号；降级原因只在 daemon stderr。
 
 ## 测试

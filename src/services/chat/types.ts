@@ -83,6 +83,8 @@ export type AssistantMessage = MessageBranch & {
   search?: boolean
   /** 本轮请求的系统信息快照；各回答版本独立保存，续写沿用。历史消息中缺省的快照保持为空。 */
   latestReminder?: string
+  /** melete：本轮注入的记忆读数（伴随服务响应头）；直连上游或无注入时缺省不展示 */
+  memoryMeta?: { injected: number; tier: string }
   /** 是否允许作为续写前缀；仍需满足回复状态与内容限制。 */
   prefix: boolean
   status: ReplyStatus

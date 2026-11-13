@@ -1,0 +1,153 @@
+.memories {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.label {
+  font-weight: 600;
+  font-size: var(--ds-font-size-m);
+}
+
+.description {
+  font-size: 13px;
+  opacity: 0.75;
+  margin-top: 2px;
+}
+
+.description button {
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+}
+
+.statusDot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+  background-color: var(--dsw-alias-border-l);
+}
+
+.statusDotOk {
+  background-color: #4caf7d;
+}
+
+.statusDotBad {
+  background-color: #e06055;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--dsw-alias-border-l);
+  border-radius: 10px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.listItem {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--dsw-alias-border-l);
+}
+
+.listItem:last-child {
+  border-bottom: none;
+}
+
+.listTitleRow {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.listTitle {
+  font-weight: 600;
+  font-size: var(--ds-font-size-m);
+}
+
+.listType {
+  font-size: 12px;
+  opacity: 0.75;
+  white-space: nowrap;
+}
+
+.listContent {
+  margin-top: 4px;
+  font-size: 13px;
+  opacity: 0.85;
+  word-break: break-word;
+}
+
+.empty {
+  padding: 14px 12px;
+  font-size: 13px;
+  opacity: 0.7;
+  text-align: center;
+}
+
+.error {
+  color: #e06055;
+  font-size: 13px;
+}
+
+.note {
+  font-size: 12px;
+  opacity: 0.65;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border: 1px solid var(--dsw-alias-border-l);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.formRow {
+  display: flex;
+  gap: 8px;
+}
+
+.formRow > * {
+  flex: 1;
+  min-width: 0;
+}
+
+.input,
+.textarea,
+.select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 10px;
+  border: 1px solid var(--dsw-alias-border-l);
+  border-radius: 8px;
+  background: var(--dsw-alias-bg-base);
+  color: inherit;
+  font-size: var(--ds-font-size-m);
+  font-family: inherit;
+}
+
+.textarea {
+  min-height: 64px;
+  resize: vertical;
+}
+
+.input:focus,
+.textarea:focus,
+.select:focus {
+  outline: none;
+  border-color: var(--dsw-alias-brand-primary);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
