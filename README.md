@@ -73,3 +73,15 @@ src/
 ## License
 
 [MIT](LICENSE). The build copies the license to `dist/LICENSE`; include it when distributing the app. Third-party dependencies are subject to their own licenses.
+
+## Mneme memory (melete additions)
+
+This fork wires the sample app to [dsh-mneme](https://github.com/slow-stack/mneme) long-term memory: relevant memories and the user profile are injected before each turn, and a local companion service distills and writes back after each reply. Chat source stays untouched — all logic lives in the local companion service `server/` (see [server/README.md](server/README.md)):
+
+```bash
+export MELETE_MNEME_TOKEN=<mneme external API token>
+pnpm melete        # local companion service (proxy + injection + distillation)
+pnpm melete:dev    # dev server (or pnpm melete:build + pnpm melete for static hosting)
+```
+
+Chat keeps working without memory (fail-open); the mneme token never leaves the local service process.

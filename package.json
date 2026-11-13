@@ -1,15 +1,19 @@
 {
-  "name": "chat-demo",
+  "name": "melete",
   "version": "0.1.1",
-  "description": "基于 DeepSeek API 的静态聊天示例。",
+  "description": "带本机长期记忆的 DeepSeek 聊天端——melete 负责交谈，mneme 负责记住。",
   "license": "MIT",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "rspack serve -c rspack.config.ts",
     "build": "rm -rf dist && NODE_ENV=production rspack build -c rspack.config.ts",
+    "melete": "node server/bin.mjs",
+    "melete:dev": "rspack serve -c rspack.melete.config.ts",
+    "melete:build": "rm -rf dist && NODE_ENV=production rspack build -c rspack.melete.config.ts",
+    "melete:test": "node --test \"server/test/*.test.mjs\"",
     "type": "tsc -p tsconfig.json",
-    "lint": "oxlint src rspack.config.ts",
+    "lint": "oxlint src rspack.config.ts rspack.melete.config.ts server",
     "format": "oxfmt --write ."
   },
   "dependencies": {

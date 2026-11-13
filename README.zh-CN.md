@@ -73,3 +73,15 @@ src/
 ## 许可证
 
 [MIT](LICENSE)。构建会将许可证复制到 `dist/LICENSE`，分发时请一并保留；第三方依赖遵循各自的许可证。
+
+## Mneme 记忆（melete 扩展）
+
+本 fork 在示例应用之上接入 [dsh-mneme](https://github.com/slow-stack/mneme) 长期记忆：回合前自动注入相关记忆与用户画像，回合后由本地服务蒸馏写回。聊天源码零改动，全部逻辑在本地伴随服务 `server/`（详情见 [server/README.md](server/README.md)）：
+
+```bash
+export MELETE_MNEME_TOKEN=<mneme 外部访问 token>
+pnpm melete        # 本地伴随服务（代理 + 注入 + 蒸馏）
+pnpm melete:dev    # 开发（或 pnpm melete:build + pnpm melete 静态托管）
+```
+
+记忆缺席时聊天照常（fail-open）；mneme token 只存在本地服务进程里，不进浏览器。
