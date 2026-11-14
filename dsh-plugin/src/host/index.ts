@@ -26,6 +26,8 @@ declare module '@deepseek-ai/cordis' {
 }
 
 /** 聊天模式服务：注册预设 + 远端读数。 */
+// cordis 插件加载器约定 default export（官方 deepseek-chat-import 同款）
+// eslint-disable-next-line import/no-default-export
 export default class ChatModeService extends TypertRemoteService {
   static inject = ['typert', 'connection', 'workspaceRegistry', 'agentPresets']
 
