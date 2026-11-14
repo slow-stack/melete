@@ -73,6 +73,20 @@ pnpm melete          # http://127.0:8091 打开即是带记忆的聊天
 pnpm melete:test    # node --test；stub mneme + stub DeepSeek 全链路（注入/透传/蒸馏/fail-open/CORS/穿越）
 ```
 
+## 批量蒸馏历史会话（ingest）
+
+把官方 App 导出的 `deepseek_data-*.zip`（v3）批量蒸馏进记忆库——**按会话**蒸馏（一次调用提炼该会话 0-3 条稳定事实），不是逐轮，400 会话 ≈ 25 分钟、几块钱：
+
+```bash
+pnpm melete:ingest --zip "C:\path\deepseek_data-xxx.zip"                # dry-run：只统计与预估，不联网
+pnpm melete:ingest --zip ... --apply --key <DeepSeek key>               # 真跑
+# 可选：--limit N --state <path>（断点续跑，默认与 ZIP 同目录）--model --delay --budget
+```
+
+- 会话线性化按官方口径只走 `current_message_id` 所在分支；FAILED/超限/空回答轮次不进蒸馏；超长会话头 2 轮 + 尾轮采样、中段折叠（预算 12000 字符）。
+- 凭据：mneme token 用 `MELETE_MNEME_TOKEN`，DeepSeek key 用 `DEEPSEEK_API_KEY` 或 `--key`；dry-run 完全不联网。
+- 蒸馏 prompt 只提取稳定信息（偏好/决定/摘要/模式/事件，最多 3 条，标题稳定可复用）——与写侧去重三元组（type+title+scope）配合，重跑靠 state 文件跳过已处理会话。
+
 ## 已知边界
 
 - 蒸馏 dedupe 靠「type+title+scope」三元组：标题由模型生成，同类对话可能产出相近但不同的标题导致重复行——后续考虑把会话 id 织进 title 归一化。

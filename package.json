@@ -12,6 +12,7 @@
     "melete:dev": "rspack serve -c rspack.melete.config.ts",
     "melete:build": "rm -rf dist && NODE_ENV=production rspack build -c rspack.melete.config.ts",
     "melete:test": "node --test \"server/test/*.test.mjs\"",
+    "melete:ingest": "node server/scripts/ingest.mjs",
     "type": "tsc -p tsconfig.json",
     "lint": "oxlint src rspack.config.ts rspack.melete.config.ts server",
     "format": "oxfmt --write ."
