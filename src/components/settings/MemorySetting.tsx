@@ -1,14 +1,23 @@
 import { useCallback, useEffect, useState } from 'react'
 import { API_ORIGIN } from '../../services/api/client.js'
 import { useTranslate, type TranslationKey } from '../../i18n/index.js'
+import { loadSession, loadSessionSummaries } from '../../services/chat/db.js'
+import { useSettings } from '../../services/settings.js'
+import {
+  MEMORY_TYPES,
+  distillSession,
+  planSession,
+  saveMemoryDraft,
+} from '../../services/memory/ingest.js'
 import { Button } from '../base/Button.js'
 import { showToast } from '../base/toastState.js'
 import styles from './Memory.module.css'
 
 /**
- * 设置弹窗「记忆」区：mneme 服务状态、melete 建立的记忆列表、手动添加。
- * 所有请求都打本机伴随服务（API_ORIGIN）的 /mneme/* 代理——mneme token 只在
- * server 进程里，前端永不直连 daemon；编辑/删除待 mneme 数据面路由扩展。
+ * 设置弹窗「记忆」区：mneme 服务状态、melete 建立的记忆列表、手动添加、
+ * 历史会话批量整理。所有请求都打本机伴随服务（API_ORIGIN）的 /mneme/* 代理——
+ * mneme token 只在 server 进程里，前端永不直连 daemon；编辑/删除待 mneme
+ * 数据面路由扩展。蒸馏逻辑在 services/memory/ingest.ts（浏览器版，与 CLI 版同构）。
  */
 
 type MemoryStatus = {
@@ -25,8 +34,6 @@ type MemoryItem = {
 }
 
 type MemoryList = { items: MemoryItem[]; total: number }
-
-const MEMORY_TYPES = ['preference', 'decision', 'summary', 'pattern', 'history'] as const
 
 type MemoryType = (typeof MEMORY_TYPES)[number]
 
@@ -55,6 +62,213 @@ const errorText = async (response: Response): Promise<string> => {
     // 无错误体时用状态码
   }
   return String(response.status)
+}
+
+// ---------------------------------------------------------------------------
+// 整理历史会话：浏览器内按会话蒸馏 → 写回记忆库。
+// 进度与运行标志放模块级——中途关掉设置页循环继续跑，重开页面进度不丢、不会双开。
+// ---------------------------------------------------------------------------
+
+const INGEST_DONE_KEY = 'melete-ingest-done'
+const INGEST_DELAY_MS = 1200
+
+type IngestItem = { sessionId: string; title: string; turns: number; chars: number }
+
+const ingestState: {
+  running: boolean
+  paused: boolean
+  plan: IngestItem[] | null
+  progress: { done: number; total: number; written: number; title: string }
+} = {
+  running: false,
+  paused: false,
+  plan: null,
+  progress: { done: 0, total: 0, written: 0, title: '' },
+}
+
+const readDoneIds = (): Set<string> =>
+  new Set(JSON.parse(localStorage.getItem(INGEST_DONE_KEY) ?? '[]') as string[])
+
+const MemoryIngest = () => {
+  const t = useTranslate()
+  const apiKey = useSettings((state) => state.apiKey)
+  const [phase, setPhase] = useState<'idle' | 'estimating' | 'ready' | 'running' | 'paused' | 'done'>(
+    ingestState.running ? 'running' : 'idle'
+  )
+  const [plan, setPlan] = useState<IngestItem[] | null>(ingestState.plan)
+  const [progress, setProgress] = useState(ingestState.progress)
+  const [failures, setFailures] = useState(0)
+
+  useEffect(() => {
+    // 运行中重开设置页：重新挂上模块级状态的实时读数
+    if (!ingestState.running) {
+      return
+    }
+    setPhase('running')
+    setPlan(ingestState.plan)
+    setProgress({ ...ingestState.progress })
+  }, [])
+
+  const estimate = async () => {
+    setPhase('estimating')
+    try {
+      const summaries = await loadSessionSummaries()
+      const items: IngestItem[] = []
+      for (const summary of summaries) {
+        const session = await loadSession(summary.id)
+        if (!session) {
+          continue
+        }
+        const item = planSession(session)
+        if (item) {
+          items.push({ sessionId: item.sessionId, title: item.title, turns: item.turns, chars: item.chars })
+        }
+      }
+      ingestState.plan = items
+      ingestState.progress = { done: 0, total: items.length, written: 0, title: '' }
+      setPlan(items)
+      setProgress(ingestState.progress)
+      setPhase('ready')
+    } catch {
+      setPhase('idle')
+      showToast({ key: 'memoryIngestNoSessions', type: 'error' })
+    }
+  }
+
+  const run = async () => {
+    if (ingestState.running || !plan || plan.length === 0) {
+      return
+    }
+    ingestState.running = true
+    ingestState.paused = false
+    setPhase('running')
+    setFailures(0)
+    const doneIds = readDoneIds()
+    const queue = plan.filter((item) => !doneIds.has(item.sessionId))
+    ingestState.progress = { done: 0, total: queue.length, written: 0, title: '' }
+    let written = 0
+    let doneCount = 0
+    let failed = 0
+    for (const item of queue) {
+      if (ingestState.paused) {
+        break
+      }
+      ingestState.progress = { done: doneCount, total: queue.length, written, title: item.title }
+      setProgress({ ...ingestState.progress })
+      try {
+        const session = await loadSession(item.sessionId)
+        if (!session) {
+          throw new Error('session missing')
+        }
+        const itemPlan = planSession(session)
+        const drafts = itemPlan ? await distillSession(itemPlan.text, apiKey ?? '', 'deepseek-flash') : []
+        if (drafts) {
+          for (const draft of drafts) {
+            await saveMemoryDraft(draft)
+          }
+          written += drafts.length
+        }
+        doneIds.add(item.sessionId)
+        localStorage.setItem(INGEST_DONE_KEY, JSON.stringify([...doneIds]))
+        doneCount += 1
+        ingestState.progress = { done: doneCount, total: queue.length, written, title: item.title }
+        setProgress({ ...ingestState.progress })
+      } catch {
+        failed += 1
+        doneIds.add(item.sessionId)
+        localStorage.setItem(INGEST_DONE_KEY, JSON.stringify([...doneIds]))
+        doneCount += 1
+      }
+      await new Promise((resolve) => setTimeout(resolve, INGEST_DELAY_MS))
+    }
+    ingestState.running = false
+    setFailures(failed)
+    setPhase(ingestState.paused ? 'paused' : 'done')
+  }
+
+  const tokens = plan ? Math.round((plan.reduce((sum, item) => sum + item.chars, 0) * 0.7) / 1000) : 0
+  const minutes = plan ? Math.ceil((plan.length * 4) / 60) : 0
+  const percent = progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0
+
+  return (
+    <div>
+      <div className={styles.label}>{t('memoryIngestTitle')}</div>
+      <div className={styles.description}>{t('memoryIngestDescription')}</div>
+      {!apiKey ? (
+        <div className={`${styles.note} ${styles.error}`}>{t('memoryIngestNeedKey')}</div>
+      ) : null}
+      {phase === 'idle' ? (
+        <Button variant="outlined" size="m" onClick={() => void estimate()}>
+          {t('memoryIngestEstimate')}
+        </Button>
+      ) : null}
+      {phase === 'estimating' ? <div className={styles.note}>…</div> : null}
+      {plan && (phase === 'ready' || phase === 'estimating') ? (
+        <div className={styles.note}>
+          {t('memoryIngestEstimateResult', {
+            sessions: plan.length,
+            turns: plan.reduce((sum, item) => sum + item.turns, 0),
+            tokens,
+            minutes,
+          })}
+        </div>
+      ) : null}
+      {plan && phase === 'ready' ? (
+        <Button variant="outlined" size="m" onClick={() => void run()}>
+          {t('memoryIngestStart')}
+        </Button>
+      ) : null}
+      {phase === 'running' || phase === 'paused' ? (
+        <>
+          <div className={styles.progress}>
+            <div className={styles.progressBar} style={{ width: `${percent}%` }} />
+          </div>
+          <div className={styles.note}>
+            {phase === 'paused'
+              ? t('memoryIngestPaused', { done: progress.done, total: progress.total })
+              : t('memoryIngestProgress', {
+                  done: progress.done,
+                  total: progress.total,
+                  written: progress.written,
+                  title: progress.title,
+                })}
+          </div>
+          {phase === 'running' ? (
+            <Button
+              variant="outlined"
+              size="s"
+              onClick={() => {
+                ingestState.paused = true
+              }}
+            >
+              {t('memoryIngestPause')}
+            </Button>
+          ) : (
+            <Button variant="outlined" size="s" onClick={() => void run()}>
+              {t('memoryIngestResume')}
+            </Button>
+          )}
+        </>
+      ) : null}
+      {phase === 'done' ? (
+        <div className={styles.note}>
+          {t('memoryIngestDone', { written: progress.written })}
+          {failures > 0 ? ` · ${t('memoryIngestFailed', { count: failures })}` : ''}
+        </div>
+      ) : null}
+      {plan && phase !== 'running' ? (
+        <Button
+          variant="outlined"
+          size="s"
+          onClick={() => {
+            localStorage.removeItem(INGEST_DONE_KEY)
+          }}
+        >
+          {t('memoryIngestReset')}
+        </Button>
+      ) : null}
+    </div>
+  )
 }
 
 export const MemorySetting = () => {
@@ -231,6 +445,8 @@ export const MemorySetting = () => {
           </div>
         </div>
       </div>
+
+      <MemoryIngest />
     </div>
   )
 }

@@ -151,3 +151,16 @@
   justify-content: flex-end;
   gap: 8px;
 }
+
+.progress {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--dsw-alias-border-l);
+  overflow: hidden;
+}
+
+.progressBar {
+  height: 100%;
+  background: var(--dsw-alias-brand-primary);
+  transition: width 0.3s var(--ds-ease-in-out);
+}
