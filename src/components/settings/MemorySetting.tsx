@@ -127,7 +127,7 @@ export const MemorySetting = () => {
           {statusFailed || !status ? (
             <>
               <span className={`${styles.statusDot} ${styles.statusDotBad}`} />
-              {t('memoryStatusUnreachable')}
+              {t('memoryCompanionMissing')}
             </>
           ) : (
             <>

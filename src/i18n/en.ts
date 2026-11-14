@@ -181,6 +181,7 @@ export const en = {
   // mneme memory section (melete)
   settingDialogAsideMemoryOptionLabel: 'Memory',
   memoryStatusTitle: 'Memory service (mneme)',
+  memoryCompanionMissing: 'Companion service unreachable — run pnpm melete locally first (127.0.0.1:8091); the public site has no memory features',
   memoryStatusOk: 'Connected to {url}, distill write-back {distill}',
   memoryStatusOn: 'on',
   memoryStatusOff: 'off',

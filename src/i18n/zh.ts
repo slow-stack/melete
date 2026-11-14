@@ -172,6 +172,7 @@ export const zh = {
   // mneme 记忆区（melete）
   settingDialogAsideMemoryOptionLabel: '记忆',
   memoryStatusTitle: '记忆服务（mneme）',
+  memoryCompanionMissing: '伴随服务不可达——先在本机跑 pnpm melete（127.0.0.1:8091）；公网站点不含记忆功能',
   memoryStatusOk: '已连接 {url}，蒸馏写回{distill}',
   memoryStatusOn: '开',
   memoryStatusOff: '关',
