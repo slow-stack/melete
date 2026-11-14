@@ -1,7 +1,11 @@
 {
   "ui": {
     "chatPageTitle": "Melete 聊天模式",
-    "chatPageSkeleton": "骨架：闲聊预设已注册；导入的会话在此续聊的接线在建。",
-    "chatPageLabel": "Melete 聊天"
+    "chatPageLabel": "Melete 聊天",
+    "chatPageEmpty": "开始聊天吧——这里的对话是临时通道，phase 2 接入会话存储与记忆。",
+    "chatPageInputPlaceholder": "输入消息（Enter 发送，Shift+Enter 换行）",
+    "chatPageSend": "发送",
+    "chatPageThinking": "对方正在输入…",
+    "chatPageTempNote": "临时通道：对话暂不进记忆库与 DSH 会话存储；preset 会话接线后自动迁移。"
   }
 }

@@ -7,15 +7,24 @@
 import type { Context } from '@deepseek-ai/cordis'
 import Schema from '@deepseek-ai/schemastery'
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
+import type {} from '@deepseek-ai/dsh-client-connection'
+import type {} from '@deepseek-ai/dsh-workspace'
 import type { PresetDefinition } from '@deepseek-ai/dsh-agent-preset-registry'
-import { REMOTE_NAMESPACE } from '../shared/protocol.js'
+import { CHAT_TURN_PATH, REMOTE_NAMESPACE } from '../shared/protocol.js'
+import { createChatTurnRoute } from './llm.js'
 
-/** 聊天模式预设在宿主预设注册表里的形状（PresetDefinition，见 agent-preset-registry）。 */
+/** 聊天模式配置：preset 组装 + 临时聊天通道的凭据与模型。 */
 export interface ChatModeConfig {
   /** 预设名（用户在 DSH 预设列表里看到的）。 */
   presetName: string
   /** 人格提示；空 = 不插 persona 行（行 config 形状待对 @deepseek-ai/dsh-persona 验证后启用）。 */
   personaPrompt: string
+  /** DeepSeek API key（host 持有，不下发浏览器；临时聊天通道用）。 */
+  apiKey: string
+  /** 聊天模型（快档）。 */
+  model: string
+  /** Anthropic 兼容端点 origin。 */
+  apiOrigin: string
 }
 
 declare module '@deepseek-ai/cordis' {
@@ -36,6 +45,12 @@ export default class ChatModeService extends TypertRemoteService {
       .description('聊天模式预设在 DSH 预设列表里的名字。'),
     personaPrompt: Schema.string().default('')
       .description('聊天模式的人格提示；空 = 预设不含 persona 行（形状验证后启用）。'),
+    apiKey: Schema.string().default('')
+      .description('DeepSeek API key（临时聊天通道用，仅存本机 host config）。'),
+    model: Schema.string().default('deepseek-flash')
+      .description('聊天模型（快档）。'),
+    apiOrigin: Schema.string().default('https://api.deepseek.com')
+      .description('Anthropic 兼容端点 origin。'),
   })
 
   constructor(ctx: Context, private readonly config: ChatModeConfig) {
@@ -44,8 +59,29 @@ export default class ChatModeService extends TypertRemoteService {
       () => ctx.agentPresets.register(this.buildPreset()),
       'dsh-chat-mode: register chat preset',
     )
+    // 临时聊天通道：phase 2 换 preset 激活的原生循环后退役。
+    ctx.effect(
+      () => ctx.connection.fetch.register({
+        path: CHAT_TURN_PATH,
+        methods: ['POST'],
+        requestBody: 'buffered',
+        fetch: createChatTurnRoute({
+          apiKey: this.config.apiKey,
+          model: this.config.model,
+          apiOrigin: this.config.apiOrigin,
+          systemPrompt: this.systemPrompt(),
+          maxTurnChars: 256 * 1024,
+        }),
+      }),
+      'dsh-chat-mode: chat turn route',
+    )
     // TODO(phase-2): 注册代管 workspace（聊天归档桶）——官方导入对话框读
     // workspaceRegistry，注册后导入目标自动出现。
+  }
+
+  /** 聊天系统提示：persona 优先，否则缺省对话人格。 */
+  private systemPrompt(): string {
+    return this.config.personaPrompt.trim() || '你是 Melete 聊天模式的对话伙伴，回答自然、简洁、直接。'
   }
 
   /**

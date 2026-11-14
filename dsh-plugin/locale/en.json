@@ -1,7 +1,11 @@
 {
   "ui": {
     "chatPageTitle": "Melete chat mode",
-    "chatPageSkeleton": "Skeleton: the chat preset is registered; wiring imported sessions into this page is in progress.",
-    "chatPageLabel": "Melete chat"
+    "chatPageLabel": "Melete chat",
+    "chatPageEmpty": "Say something — this page runs on the temporary channel; session storage and memory arrive in phase 2.",
+    "chatPageInputPlaceholder": "Type a message (Enter to send, Shift+Enter for newline)",
+    "chatPageSend": "Send",
+    "chatPageThinking": "typing…",
+    "chatPageTempNote": "Temporary channel: turns are not stored in DSH sessions or memory yet; they migrate once the preset wiring lands."
   }
 }
