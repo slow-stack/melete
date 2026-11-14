@@ -62,7 +62,6 @@ try {
 } catch (error) {
   die(String(error))
 }
-const indexById = new Map(archive.index.map((entry) => [entry.id, entry]))
 const plans = []
 let totalTurns = 0
 let totalChars = 0
