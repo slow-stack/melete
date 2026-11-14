@@ -1,0 +1,6 @@
+# Melete chat mode: the chat preset (persona + no tools + fast model) and the
+# owner-only chat remote. The chat-mode workspace is registered by the plugin
+# itself so the official import dialog targets it.
+- insert:
+    - id: dsh-chat-mode
+      name: '@modusensus/dsh-chat-mode'

@@ -1,0 +1,7 @@
+{
+  "ui": {
+    "chatPageTitle": "Melete chat mode",
+    "chatPageSkeleton": "Skeleton: the chat preset is registered; wiring imported sessions into this page is in progress.",
+    "chatPageLabel": "Melete chat"
+  }
+}
